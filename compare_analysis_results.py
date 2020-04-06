@@ -14,6 +14,8 @@ import scipy.sparse
 from set_ops import sorted_union
 
 class ComparisonResult(NamedTuple):
+    len_1: int
+    len_2: int
     intersection: int
     union: int
     one_minus_two: int
@@ -28,6 +30,7 @@ class CellByBinMatrix:
     bins: List[str]
 
 def read_pipeline_output(base_directory: Path):
+    print('Reading pipeline output from', base_directory)
     with open(base_directory / 'barcodes.txt') as f:
         barcodes = [line.strip().split('_')[-1] for line in f]
     with open(base_directory / 'bins.txt') as f:
@@ -112,7 +115,15 @@ def label_comparison(labels_1: List[str], labels_2: List[str]) -> ComparisonResu
     union = len(s1 | s2)
     one_minus_two = len(s1 - s2)
     two_minus_one = len(s2 - s1)
-    return ComparisonResult(intersection, union, one_minus_two, two_minus_one, intersection / union)
+    return ComparisonResult(
+        len(labels_1),
+        len(labels_2),
+        intersection,
+        union,
+        one_minus_two,
+        two_minus_one,
+        intersection / union,
+    )
 
 def compare_analysis_results(paths: List[Path]):
     data_matrices: Dict[str, CellByBinMatrix] = {path.name: read_pipeline_output(path) for path in paths}
