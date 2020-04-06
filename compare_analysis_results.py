@@ -83,6 +83,11 @@ def expand_matrices_to_common_dims(data: Collection[CellByBinMatrix]) -> Tuple[L
         new_cols = np.array([bin_mapping[col] for col in cbb_coo.col])
         new_data = np.ones(cbb_coo.nnz)
 
+        # Could also do this as a pair of matrix multiplications, with left and
+        # right permutation-like matrices (binary, a single 1 entry for each row
+        # or column as appropriate), like P_l @ B @ P_r (with cell-by-bin matrix B),
+        # but adjusting the coordinates through this mapping works and is fast
+        # enough for our purposes
         coo_tuple = (new_data, (new_rows, new_cols))
         new_matrix = scipy.sparse.coo_matrix(coo_tuple, shape=(len(all_barcodes), len(all_bins)))
         new_matrices.append(new_matrix.tocsr())
