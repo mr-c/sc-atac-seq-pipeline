@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
+import pandas as pd
 import scipy.io
 import scipy.sparse
 
@@ -90,6 +91,16 @@ def compare_matrices(m1: scipy.sparse.spmatrix, m2: scipy.sparse.spmatrix) -> fl
 def compare_analysis_results(paths: List[Path]):
     data_matrices = [read_pipeline_output(path) for path in paths]
     expanded, all_barcodes, all_bins = expand_matrices_to_common_dims(data_matrices)
+    named = {
+        path.name: data_matrix
+        for path, data_matrix in zip(paths, expanded)
+    }
+
+    proportion_difference = pd.DataFrame(np.nan, index=list(named), columns=list(named))
+    for n1, n2 in combinations(named, 2):
+        proportion_difference.loc[n1, n2] = compare_matrices(named[n1], named[n2])
+    print('Proportional difference in cell-by-bin matrices:')
+    print(proportion_difference)
 
 if __name__ == '__main__':
     p = ArgumentParser()
