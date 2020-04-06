@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from os import fspath
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, NamedTuple, Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,13 @@ import scipy.io
 import scipy.sparse
 
 from set_ops import sorted_union
+
+class ComparisonResult(NamedTuple):
+    intersection: int
+    union: int
+    one_minus_two: int
+    two_minus_one: int
+    jaccard_index: float
 
 @dataclass
 class CellByBinMatrix:
@@ -98,6 +105,15 @@ def jaccard_index(items_1: List[str], items_2: List[str]):
     union = s1 | s2
     return len(intersection) / len(union)
 
+def label_comparison(labels_1: List[str], labels_2: List[str]) -> ComparisonResult:
+    s1 = set(labels_1)
+    s2 = set(labels_2)
+    intersection = len(s1 & s2)
+    union = len(s1 | s2)
+    one_minus_two = len(s1 - s2)
+    two_minus_one = len(s2 - s1)
+    return ComparisonResult(intersection, union, one_minus_two, two_minus_one, intersection / union)
+
 def compare_analysis_results(paths: List[Path]):
     data_matrices: Dict[str, CellByBinMatrix] = {path.name: read_pipeline_output(path) for path in paths}
     expanded, all_barcodes, all_bins = expand_matrices_to_common_dims(data_matrices.values())
@@ -107,18 +123,15 @@ def compare_analysis_results(paths: List[Path]):
     }
 
     proportion_difference = pd.DataFrame(np.nan, index=list(named), columns=list(named))
-    barcode_jaccard = pd.DataFrame(np.nan, index=list(named), columns=list(named))
-    bin_jaccard = pd.DataFrame(np.nan, index=list(named), columns=list(named))
     for n1, n2 in combinations(named, 2):
+        print('Comparing', n1, 'vs.', n2)
+        print('Barcodes:')
+        print(label_comparison(data_matrices[n1].barcodes, data_matrices[n2].barcodes))
+        print('Bins:')
+        print(label_comparison(data_matrices[n1].bins, data_matrices[n2].bins))
         proportion_difference.loc[n1, n2] = compare_matrices(named[n1], named[n2])
-        barcode_jaccard.loc[n1, n2] = jaccard_index(data_matrices[n1].barcodes, data_matrices[n2].barcodes)
-        bin_jaccard.loc[n1, n2] = jaccard_index(data_matrices[n1].bins, data_matrices[n2].bins)
     print('Proportional difference in cell-by-bin matrices:')
     print(proportion_difference)
-    print('Barcode set Jaccard indices:')
-    print(barcode_jaccard)
-    print('Bin set Jaccard indices:')
-    print(bin_jaccard)
 
 if __name__ == '__main__':
     p = ArgumentParser()
