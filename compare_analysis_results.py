@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from os import fspath
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,7 @@ from set_ops import sorted_union
 
 @dataclass
 class CellByBinMatrix:
+    name: str
     matrix: scipy.sparse.spmatrix
     barcodes: List[str]
     bins: List[str]
@@ -29,6 +30,7 @@ def read_pipeline_output(base_directory: Path):
     cell_by_bin = scipy.io.mmread(fspath(base_directory / 'filtered_cell_by_bin.mtx'))
 
     return CellByBinMatrix(
+        name=base_directory.name,
         matrix=cell_by_bin,
         barcodes=barcodes,
         bins=bins,
@@ -50,7 +52,7 @@ def get_expanded_coordinate_mapping(labels: List[str], all_labels: List[str]) ->
     all_label_coord_mapping = {l: i for i, l in enumerate(all_labels)}
     return {i: all_label_coord_mapping[l] for i, l in enumerate(labels)}
 
-def expand_matrices_to_common_dims(data: List[CellByBinMatrix]) -> Tuple[List[scipy.sparse.spmatrix], List[str], List[str]]:
+def expand_matrices_to_common_dims(data: Iterable[CellByBinMatrix]) -> Tuple[List[scipy.sparse.spmatrix], List[str], List[str]]:
     # It's a bit of a waste to store a reference to the same lists and
     # mappings in each element of the resulting list, but this just needs to work
     all_barcodes = sorted_union(*(d.barcodes for d in data))
@@ -88,19 +90,35 @@ def compare_matrices(m1: scipy.sparse.spmatrix, m2: scipy.sparse.spmatrix) -> fl
     total_size = np.prod(m1.shape)
     return diff.nnz / total_size
 
+def jaccard_index(items_1: List[str], items_2: List[str]):
+    # Not using 'sorted' methods because we're definitely not using the order
+    s1 = set(items_1)
+    s2 = set(items_2)
+    intersection = s1 & s2
+    union = s1 | s2
+    return len(intersection) / len(union)
+
 def compare_analysis_results(paths: List[Path]):
-    data_matrices = [read_pipeline_output(path) for path in paths]
-    expanded, all_barcodes, all_bins = expand_matrices_to_common_dims(data_matrices)
+    data_matrices: Dict[str, CellByBinMatrix] = {path.name: read_pipeline_output(path) for path in paths}
+    expanded, all_barcodes, all_bins = expand_matrices_to_common_dims(data_matrices.values())
     named = {
         path.name: data_matrix
         for path, data_matrix in zip(paths, expanded)
     }
 
     proportion_difference = pd.DataFrame(np.nan, index=list(named), columns=list(named))
+    barcode_jaccard = pd.DataFrame(np.nan, index=list(named), columns=list(named))
+    bin_jaccard = pd.DataFrame(np.nan, index=list(named), columns=list(named))
     for n1, n2 in combinations(named, 2):
         proportion_difference.loc[n1, n2] = compare_matrices(named[n1], named[n2])
+        barcode_jaccard.loc[n1, n2] = jaccard_index(data_matrices[n1].barcodes, data_matrices[n2].barcodes)
+        bin_jaccard.loc[n1, n2] = jaccard_index(data_matrices[n1].bins, data_matrices[n2].bins)
     print('Proportional difference in cell-by-bin matrices:')
     print(proportion_difference)
+    print('Barcode set Jaccard indices:')
+    print(barcode_jaccard)
+    print('Bin set Jaccard indices:')
+    print(bin_jaccard)
 
 if __name__ == '__main__':
     p = ArgumentParser()
