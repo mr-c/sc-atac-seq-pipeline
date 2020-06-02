@@ -5,16 +5,6 @@ id: gather_sequence_bundles
 label: gather sequence bundles
 cwlVersion: v1.1
 
-$namespaces:
-  s: https://schema.org/
-  edam: http://edamontology.org/
-  dct: http://purl.org/dc/terms/
-  foaf: http://xmlns.com/foaf/0.1/
-
-$schemas:
-  - https://schema.org/docs/schema_org_rdfa.html
-  - http://edamontology.org/EDAM_1.18.owl
-
 requirements:
   DockerRequirement:
     dockerPull: hubmap/sc-atac-seq-hg38
